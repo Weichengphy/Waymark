@@ -1,0 +1,11 @@
+# SwiftPM build products
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+
+# The app bundle is assembled by package.sh, not source
+*.app/
+
+# macOS
+.DS_Store
