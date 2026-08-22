@@ -180,7 +180,7 @@ struct ContentView: View {
                 Label("探索度网格", systemImage: "square.grid.3x3.fill")
             }
             .toggleStyle(.button)
-            .help("在选中的城市上叠加 10×10 的探索度网格")
+            .help("在选中的城市上叠加探索度网格")
             .disabled(selectedCity == nil || galleryPlaceID != nil)
 
             Button {
