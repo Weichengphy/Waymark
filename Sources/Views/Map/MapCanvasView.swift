@@ -42,10 +42,17 @@ struct MapCanvasView: View {
         MapReader { proxy in
             Map(position: $cameraPosition) {
                 if showsCoverageGrid, let coverageSummary {
-                    ForEach(coverageSummary.cells) { cell in
+                    // Unvisited first so the visited cells' strokes are never
+                    // overdrawn by a neighbouring scrim.
+                    ForEach(coverageSummary.unvisitedCells) { cell in
                         MapPolygon(coordinates: cell.corners)
-                            .foregroundStyle(cell.isVisited ? Color.green.opacity(0.28) : Color.gray.opacity(0.07))
-                            .stroke(cell.isVisited ? Color.green.opacity(0.7) : Color.gray.opacity(0.25), lineWidth: 1)
+                            .foregroundStyle(CoveragePalette.unvisitedFill)
+                            .stroke(CoveragePalette.unvisitedStroke, lineWidth: 0.5)
+                    }
+                    ForEach(coverageSummary.visitedCells) { cell in
+                        MapPolygon(coordinates: cell.corners)
+                            .foregroundStyle(CoveragePalette.visitedFill)
+                            .stroke(CoveragePalette.visitedStroke, lineWidth: 1.5)
                     }
                 }
 
@@ -124,7 +131,7 @@ struct MapCanvasView: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(coverageSummary.coveragePercent)%")
                         .font(.system(size: WaymarkType.title2, weight: .bold))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(CoveragePalette.visited)
                     Text("探索度")
                         .font(.system(size: WaymarkType.caption))
                         .foregroundStyle(.secondary)
@@ -154,8 +161,8 @@ struct MapCanvasView: View {
     private var legend: some View {
         if showsCoverageGrid, coverageSummary != nil {
             VStack(alignment: .leading, spacing: 5) {
-                legendRow(color: .green.opacity(0.5), label: "已到过的区域")
-                legendRow(color: .gray.opacity(0.2), label: "尚未到过")
+                legendRow(color: CoveragePalette.visited, label: "已到过（打卡点 1.5 公里内）")
+                legendRow(color: CoveragePalette.unvisitedFill, label: "尚未到过")
             }
             .padding(8)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: WaymarkMetric.cardRadiusSmall))

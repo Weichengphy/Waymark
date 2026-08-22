@@ -14,6 +14,13 @@ final class DataStore {
     /// change the shape of the places file that already exists on disk.
     private(set) var cityKinds: [String: CityKind] = [:]
 
+    /// Coverage grids are hundreds of cells and get asked for from computed
+    /// properties on every view update — the sidebar alone recomputes one per
+    /// city. Cached until the next mutation. `@ObservationIgnored` because
+    /// filling the cache from inside a getter must not register as a change to
+    /// observed state mid-update.
+    @ObservationIgnored private var coverageCache: [String: CityCoverageSummary] = [:]
+
     static var appFolder: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let folder = base.appendingPathComponent("Waymark", isDirectory: true)
@@ -56,6 +63,7 @@ final class DataStore {
     }
 
     private func save() {
+        coverageCache.removeAll()
         guard let data = try? encoder.encode(places) else { return }
         try? data.write(to: fileURL, options: .atomic)
     }
@@ -83,7 +91,9 @@ final class DataStore {
     }
 
     var cityAggregates: [CityAggregate] {
-        CityAggregate.aggregate(places: places)
+        CityAggregate.aggregate(places: places) { [weak self] city in
+            self?.coverageSummary(forCity: city)?.coveragePercent ?? 0
+        }
     }
 
     var cityNames: [String] {
@@ -110,7 +120,12 @@ final class DataStore {
     }
 
     func coverageSummary(forCity city: String) -> CityCoverageSummary? {
-        CityCoverageCalculator.summarize(places: places(inCity: city))
+        if let cached = coverageCache[city] { return cached }
+        guard let summary = CityCoverageCalculator.summarize(places: places(inCity: city)) else {
+            return nil
+        }
+        coverageCache[city] = summary
+        return summary
     }
 
     // MARK: - Mutations

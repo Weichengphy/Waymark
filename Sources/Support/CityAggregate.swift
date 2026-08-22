@@ -15,7 +15,10 @@ struct CityAggregate: Identifiable, Hashable {
     static func == (lhs: CityAggregate, rhs: CityAggregate) -> Bool { lhs.city == rhs.city }
     func hash(into hasher: inout Hasher) { hasher.combine(city) }
 
-    static func aggregate(places: [Place]) -> [CityAggregate] {
+    /// `coveragePercent` is supplied by the caller rather than computed here so
+    /// the (expensive, cached) grid isn't rebuilt once per city on every view
+    /// update.
+    static func aggregate(places: [Place], coveragePercent: (String) -> Int) -> [CityAggregate] {
         let grouped = Dictionary(grouping: places.filter { !$0.city.isEmpty }, by: \.city)
         return grouped.map { city, cityPlaces in
             let avgLat = cityPlaces.map(\.latitude).reduce(0, +) / Double(cityPlaces.count)
@@ -25,7 +28,7 @@ struct CityAggregate: Identifiable, Hashable {
                 coordinate: CLLocationCoordinate2D(latitude: avgLat, longitude: avgLon),
                 placeCount: cityPlaces.count,
                 photoCount: cityPlaces.reduce(0) { $0 + $1.photos.count },
-                coveragePercent: CityCoverageCalculator.summarize(places: cityPlaces)?.coveragePercent ?? 0
+                coveragePercent: coveragePercent(city)
             )
         }
         .sorted { $0.placeCount > $1.placeCount }

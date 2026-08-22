@@ -213,13 +213,13 @@ private struct CityRow: View {
                     Spacer()
                     Text("\(aggregate.coveragePercent)%")
                         .font(.system(size: WaymarkType.footnote, weight: .bold))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(CoveragePalette.visited)
                 }
 
                 // The bar is the point of this row: scanning the sidebar
                 // should answer "where have I barely scratched the surface".
                 ProgressView(value: Double(aggregate.coveragePercent), total: 100)
-                    .tint(.green)
+                    .tint(CoveragePalette.visited)
                     .controlSize(.mini)
 
                 Text("\(aggregate.placeCount) 个地点 · \(aggregate.photoCount) 张照片")

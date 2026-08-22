@@ -21,6 +21,20 @@ enum WaymarkMetric {
     static let thumbnailSize: CGFloat = 96
 }
 
+/// Colors for the exploration overlay. Green was the obvious choice and the
+/// wrong one: Apple's map paints parks, hills and countryside green, so a
+/// translucent green wash over Hangzhou's West Lake hills was invisible
+/// exactly where this app has the most to say. Amber is the one hue the base
+/// map never uses for large areas, so it reads against terrain, streets and
+/// water alike — and dimming the rest makes the contrast do the work.
+enum CoveragePalette {
+    static let visited = Color(red: 1.0, green: 0.55, blue: 0.05)
+    static let visitedFill = visited.opacity(0.42)
+    static let visitedStroke = visited.opacity(0.95)
+    static let unvisitedFill = Color.black.opacity(0.22)
+    static let unvisitedStroke = Color.white.opacity(0.10)
+}
+
 func categoryColor(_ category: PlaceCategory) -> Color {
     switch category {
     case .city: .blue
