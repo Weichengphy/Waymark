@@ -12,8 +12,13 @@ struct SidebarView: View {
     /// already selected — `List`'s selection binding stays silent for those,
     /// but re-clicking is how you zoom further into a city.
     var onCityActivated: (String) -> Void
+    var onRenameCity: (String, String) -> Void
+    var onDeleteCity: (String) -> Void
 
     @State private var searchText = ""
+    @State private var cityPendingDeletion: String?
+    @State private var cityPendingRename: String?
+    @State private var renameDraft = ""
 
     private func aggregates(ofKind kind: CityKind) -> [CityAggregate] {
         let matching = store.cityAggregates(ofKind: kind)
@@ -75,6 +80,41 @@ struct SidebarView: View {
         }
         .searchable(text: $searchText, placement: .sidebar, prompt: "搜索城市或地点")
         .safeAreaInset(edge: .bottom) { footer }
+        .alert(
+            "删除「\(cityPendingDeletion ?? "")」？",
+            isPresented: Binding(get: { cityPendingDeletion != nil }, set: { if !$0 { cityPendingDeletion = nil } })
+        ) {
+            Button("取消", role: .cancel) { cityPendingDeletion = nil }
+            Button("删除", role: .destructive) {
+                if let city = cityPendingDeletion { onDeleteCity(city) }
+                cityPendingDeletion = nil
+            }
+        } message: {
+            // Spell out the damage: deleting a city takes its places, visits
+            // and photos with it, and there is no undo.
+            Text(deletionWarning(for: cityPendingDeletion))
+        }
+        .alert(
+            "重命名「\(cityPendingRename ?? "")」",
+            isPresented: Binding(get: { cityPendingRename != nil }, set: { if !$0 { cityPendingRename = nil } })
+        ) {
+            TextField("城市名称", text: $renameDraft)
+            Button("取消", role: .cancel) { cityPendingRename = nil }
+            Button("保存") {
+                if let city = cityPendingRename { onRenameCity(city, renameDraft) }
+                cityPendingRename = nil
+            }
+        } message: {
+            Text("这座城市下的所有打卡地点都会改到新名字。改成一个已存在的城市名会把两者合并。")
+        }
+    }
+
+    private func deletionWarning(for city: String?) -> String {
+        guard let city else { return "" }
+        let places = store.places(inCity: city)
+        let photos = places.reduce(0) { $0 + $1.photos.count }
+        let visits = places.reduce(0) { $0 + $1.visits.count }
+        return "将删除 \(places.count) 个打卡地点、\(visits) 条到访记录和 \(photos) 张照片，无法撤销。"
     }
 
     @ViewBuilder
@@ -89,6 +129,21 @@ struct SidebarView: View {
                 )
             }
             .disabled(kind == current)
+        }
+
+        Divider()
+
+        Button {
+            renameDraft = city
+            cityPendingRename = city
+        } label: {
+            Label("重命名…", systemImage: "pencil")
+        }
+
+        Button(role: .destructive) {
+            cityPendingDeletion = city
+        } label: {
+            Label("删除城市…", systemImage: "trash")
         }
     }
 

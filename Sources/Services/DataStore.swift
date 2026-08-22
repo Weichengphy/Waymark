@@ -141,6 +141,41 @@ final class DataStore {
         save()
     }
 
+    /// Deletes a city and everything filed under it. Irreversible — callers
+    /// confirm first.
+    func deleteCity(_ city: String) {
+        for place in places where place.city == city {
+            for photo in place.photos {
+                PhotoStorage.delete(fileName: photo.fileName)
+                PhotoStorage.delete(fileName: photo.thumbnailFileName)
+            }
+        }
+        places.removeAll { $0.city == city }
+        cityKinds.removeValue(forKey: city)
+        save()
+        saveCityKinds()
+    }
+
+    /// Retitles every place filed under `old`. Renaming onto a name that
+    /// already exists merges the two — which is the fix for the same city
+    /// existing twice under different spellings, since grouping is by raw
+    /// string. The surviving city keeps the destination's classification.
+    @discardableResult
+    func renameCity(_ old: String, to new: String) -> Bool {
+        let trimmed = new.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, trimmed != old else { return false }
+
+        for index in places.indices where places[index].city == old {
+            places[index].city = trimmed
+        }
+        if let kind = cityKinds.removeValue(forKey: old), cityKinds[trimmed] == nil {
+            cityKinds[trimmed] = kind
+        }
+        save()
+        saveCityKinds()
+        return true
+    }
+
     func addVisit(_ visit: Visit, toPlace placeID: UUID) {
         mutate(placeID) { $0.visits.append(visit) }
     }

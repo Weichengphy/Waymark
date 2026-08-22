@@ -44,7 +44,9 @@ struct ContentView: View {
                 selectedCity: $selectedCity,
                 selectedPlaceID: $selectedPlaceID,
                 isShowingAddCity: isShowingAddCity,
-                onCityActivated: activate(city:)
+                onCityActivated: activate(city:),
+                onRenameCity: renameCity(_:to:),
+                onDeleteCity: deleteCity(_:)
             )
             .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
         } detail: {
@@ -216,6 +218,26 @@ struct ContentView: View {
         // Explicit call as well as the `selectedCity` observer, since that
         // observer doesn't fire when the selection was already nil.
         frameCamera(for: nil)
+    }
+
+    private func deleteCity(_ city: String) {
+        // Capture the ids first — after the delete these places are gone and
+        // the other two panes would be left pointing at nothing.
+        let removedIDs = Set(store.places(inCity: city).map(\.id))
+        store.deleteCity(city)
+
+        if let id = selectedPlaceID, removedIDs.contains(id) { selectedPlaceID = nil }
+        if let id = galleryPlaceID, removedIDs.contains(id) { closeGallery() }
+        if selectedCity == city {
+            selectedCity = nil // the observer reframes the camera and closes the gallery
+        }
+    }
+
+    private func renameCity(_ old: String, to new: String) {
+        guard store.renameCity(old, to: new) else { return }
+        if selectedCity == old {
+            selectedCity = new.trimmingCharacters(in: .whitespaces)
+        }
     }
 
     /// A city row was clicked. First click frames the city; clicking the city
