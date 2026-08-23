@@ -39,7 +39,7 @@ struct AddCitySheet: View {
                     }
                 }
                 Section("到访记录") {
-                    DatePicker("到访日期", selection: $visitDate, displayedComponents: .date)
+                    DatePicker("到访日期", selection: $visitDate, in: WaymarkDateFormat.visitDateRange, displayedComponents: .date)
                 }
                 if lookupFailed {
                     Text("没能自动定位这个城市，仍会创建，之后可以在地图上手动调整位置。")

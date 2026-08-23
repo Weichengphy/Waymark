@@ -1,6 +1,19 @@
 import Foundation
 
 enum WaymarkDateFormat {
+    /// Range every visit date picker is clamped to. A visit records somewhere
+    /// you have already been, so the future is out — but the real reason this
+    /// exists is the past end: macOS's date field accepts a typed two-digit
+    /// year literally, so typing "25" silently stored the year 25 CE.
+    static var visitDateRange: ClosedRange<Date> {
+        var components = DateComponents()
+        components.year = 1900
+        components.month = 1
+        components.day = 1
+        let start = Calendar.current.date(from: components) ?? Date(timeIntervalSince1970: 0)
+        return start...Date()
+    }
+
     static let dayMonthYear: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy年M月d日"

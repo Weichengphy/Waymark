@@ -30,13 +30,14 @@ struct PlaceInspectorView: View {
     private enum InspectorSheet: Identifiable {
         case importPhotos([ImportedPhotoDraft])
         case viewer(Int)
-        case addVisit
+        /// `nil` creates a new visit; a value edits that one.
+        case editVisit(Visit?)
 
         var id: String {
             switch self {
             case .importPhotos: "import"
             case .viewer(let index): "viewer-\(index)"
-            case .addVisit: "visit"
+            case .editVisit(let visit): "visit-\(visit?.id.uuidString ?? "new")"
             }
         }
     }
@@ -102,9 +103,13 @@ struct PlaceInspectorView: View {
                     }
                 case .viewer(let index):
                     PhotoViewer(photos: place.photosByDateDescending, index: index) { activeSheet = nil }
-                case .addVisit:
-                    AddVisitSheet { visit in
-                        store.addVisit(visit, toPlace: placeID)
+                case .editVisit(let existing):
+                    VisitEditorSheet(existing: existing) { visit in
+                        if existing == nil {
+                            store.addVisit(visit, toPlace: placeID)
+                        } else {
+                            store.updateVisit(visit, inPlace: placeID)
+                        }
                     }
                 }
             }
@@ -247,7 +252,7 @@ struct PlaceInspectorView: View {
                     .font(.system(size: WaymarkType.callout, weight: .semibold))
                 Spacer()
                 Button {
-                    activeSheet = .addVisit
+                    activeSheet = .editVisit(nil)
                 } label: {
                     Label("添加", systemImage: "plus")
                         .font(.system(size: WaymarkType.footnote))
@@ -261,23 +266,22 @@ struct PlaceInspectorView: View {
             } else {
                 ForEach(place.visitsByDateDescending) { visit in
                     let isActive = visit.id == activeVisitID
-                    HStack(alignment: .top, spacing: 8) {
+                    HStack(alignment: .top, spacing: 9) {
                         Image(systemName: isActive ? "calendar.circle.fill" : "calendar")
-                            .font(.system(size: WaymarkType.footnote))
+                            .font(.system(size: WaymarkType.callout))
                             .foregroundStyle(isActive ? Color.accentColor : .secondary)
-                        VStack(alignment: .leading, spacing: 1) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            // The date is the whole point of the row, so it
+                            // gets real text size rather than metadata size.
                             Text(WaymarkDateFormat.dayMonthYear.string(from: visit.date))
-                                .font(.system(size: WaymarkType.body, weight: isActive ? .semibold : .regular))
+                                .font(.system(size: WaymarkType.callout, weight: isActive ? .bold : .semibold))
                             if !visit.note.isEmpty {
                                 Text(visit.note)
                                     .font(.system(size: WaymarkType.footnote))
                                     .foregroundStyle(.secondary)
                             }
                         }
-                        Spacer()
-                        Image(systemName: "photo.stack")
-                            .font(.system(size: WaymarkType.caption))
-                            .foregroundStyle(.tertiary)
+                        Spacer(minLength: 4)
                         Button {
                             store.deleteVisit(id: visit.id, fromPlace: placeID)
                         } label: {
@@ -287,17 +291,35 @@ struct PlaceInspectorView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 3)
-                    .padding(.horizontal, 5)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 7)
                     .background(
-                        RoundedRectangle(cornerRadius: 5)
+                        RoundedRectangle(cornerRadius: 6)
                             .fill(isActive ? Color.accentColor.opacity(0.12) : .clear)
                     )
                     // The whole row is the target, so clicking anywhere but the
                     // trash icon scopes the gallery to that visit.
                     .contentShape(Rectangle())
                     .onTapGesture { onShowVisitPhotos(visit) }
-                    .help("只看这次到访前后拍的照片")
+                    .contextMenu {
+                        Button {
+                            activeSheet = .editVisit(visit)
+                        } label: {
+                            Label("编辑到访记录…", systemImage: "pencil")
+                        }
+                        Button {
+                            onShowVisitPhotos(visit)
+                        } label: {
+                            Label("只看这次前后的照片", systemImage: "photo.stack")
+                        }
+                        Divider()
+                        Button(role: .destructive) {
+                            store.deleteVisit(id: visit.id, fromPlace: placeID)
+                        } label: {
+                            Label("删除这条记录", systemImage: "trash")
+                        }
+                    }
+                    .help("点击只看这次前后的照片，右键可编辑")
                 }
             }
         }

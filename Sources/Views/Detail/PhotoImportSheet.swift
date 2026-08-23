@@ -131,18 +131,30 @@ private struct DraftCard: View {
     }
 }
 
-/// Small standalone sheet for logging another visit to an existing place.
-struct AddVisitSheet: View {
-    var onAdd: (Visit) -> Void
+/// Logs a new visit, or edits an existing one. One view for both because the
+/// fields are identical and the only difference is whether the saved `Visit`
+/// carries a fresh id or the one it already had.
+struct VisitEditorSheet: View {
+    var existing: Visit?
+    var onSave: (Visit) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var date = Date()
-    @State private var note = ""
+    @State private var date: Date
+    @State private var note: String
+
+    init(existing: Visit? = nil, onSave: @escaping (Visit) -> Void) {
+        self.existing = existing
+        self.onSave = onSave
+        _date = State(initialValue: existing?.date ?? Date())
+        _note = State(initialValue: existing?.note ?? "")
+    }
+
+    private var isEditing: Bool { existing != nil }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("新增到访记录")
+                Text(isEditing ? "编辑到访记录" : "新增到访记录")
                     .font(.system(size: WaymarkType.callout, weight: .semibold))
                 Spacer()
             }
@@ -151,7 +163,12 @@ struct AddVisitSheet: View {
             Divider()
 
             Form {
-                DatePicker("到访日期", selection: $date, displayedComponents: .date)
+                DatePicker(
+                    "到访日期",
+                    selection: $date,
+                    in: WaymarkDateFormat.visitDateRange,
+                    displayedComponents: .date
+                )
                 TextField("备注（可选）", text: $note, axis: .vertical)
                     .lineLimit(2...4)
             }
@@ -164,13 +181,16 @@ struct AddVisitSheet: View {
                 Button("取消") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("保存") {
-                    onAdd(Visit(date: date, note: note))
+                    var visit = existing ?? Visit()
+                    visit.date = date
+                    visit.note = note
+                    onSave(visit)
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
             }
             .padding(12)
         }
-        .frame(width: 360, height: 250)
+        .frame(width: 360, height: 260)
     }
 }

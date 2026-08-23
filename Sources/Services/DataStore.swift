@@ -195,6 +195,15 @@ final class DataStore {
         mutate(placeID) { $0.visits.append(visit) }
     }
 
+    /// Replaces a visit in place, matched by id — so editing a mistyped date
+    /// keeps the record rather than making you delete and re-add it.
+    func updateVisit(_ visit: Visit, inPlace placeID: UUID) {
+        mutate(placeID) { place in
+            guard let index = place.visits.firstIndex(where: { $0.id == visit.id }) else { return }
+            place.visits[index] = visit
+        }
+    }
+
     func deleteVisit(id visitID: UUID, fromPlace placeID: UUID) {
         mutate(placeID) { $0.visits.removeAll { $0.id == visitID } }
     }

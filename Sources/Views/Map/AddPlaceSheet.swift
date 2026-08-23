@@ -128,7 +128,7 @@ struct AddPlaceSheet: View {
             }
 
             Section("到访记录") {
-                DatePicker("到访日期", selection: $visitDate, displayedComponents: .date)
+                DatePicker("到访日期", selection: $visitDate, in: WaymarkDateFormat.visitDateRange, displayedComponents: .date)
                 TextField("备注（可选）", text: $note, axis: .vertical)
                     .lineLimit(2...4)
             }
