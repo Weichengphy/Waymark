@@ -13,6 +13,10 @@ struct MapCanvasView: View {
     /// `ContentView` can reason about the current zoom even while the map is
     /// unmounted behind the photo gallery.
     @Binding var visibleRegion: MKCoordinateRegion?
+    /// When set, the map draws that journey's route instead of a city's
+    /// coverage grid.
+    var selectedTrip: Trip?
+    var onFocusStop: (TripStop) -> Void
 
     /// Above this visible latitude span, individual pins would start
     /// overlapping and get expensive to render, so the map switches to one
@@ -23,18 +27,23 @@ struct MapCanvasView: View {
 
     /// Places drawn on the map: everything, or just the focused city.
     private var visiblePlaces: [Place] {
+        if let selectedTrip { return selectedTrip.places }
         guard let selectedCity else { return store.places }
         return store.places(inCity: selectedCity)
     }
 
     private var showsCityAggregates: Bool {
-        selectedCity == nil && (visibleRegion?.span.latitudeDelta ?? 0) > Self.cityAggregationSpanThreshold
+        selectedTrip == nil
+            && selectedCity == nil
+            && (visibleRegion?.span.latitudeDelta ?? 0) > Self.cityAggregationSpanThreshold
     }
 
     /// The grid is only meaningful scoped to one city — a bounding box drawn
     /// around places on three continents would say nothing about exploration.
     private var coverageSummary: CityCoverageSummary? {
-        guard let selectedCity else { return nil }
+        // A trip spans cities, so a single city's grid would be drawing the
+        // wrong thing underneath its route.
+        guard selectedTrip == nil, let selectedCity else { return nil }
         return store.coverageSummary(forCity: selectedCity)
     }
 
@@ -56,6 +65,16 @@ struct MapCanvasView: View {
                     }
                 }
 
+                if let selectedTrip {
+                    // Dashed, so it reads as "the order I went" rather than a
+                    // road you could drive.
+                    MapPolyline(coordinates: selectedTrip.coordinates)
+                        .stroke(
+                            TripPalette.route.opacity(0.85),
+                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round, dash: [10, 7])
+                        )
+                }
+
                 if showsCityAggregates {
                     ForEach(store.cityAggregates) { aggregate in
                         Annotation(aggregate.city, coordinate: aggregate.coordinate) {
@@ -70,6 +89,17 @@ struct MapCanvasView: View {
                 } else {
                     ForEach(visiblePlaces) { place in
                         placeAnnotation(place)
+                    }
+                }
+
+                // Drawn after the place pins so the numbers stay on top.
+                if let selectedTrip {
+                    ForEach(selectedTrip.stops) { stop in
+                        Annotation(stop.city, coordinate: stop.coordinate) {
+                            TripStopPinView(stop: stop)
+                                .onTapGesture { onFocusStop(stop) }
+                        }
+                        .annotationTitles(.hidden)
                     }
                 }
             }
@@ -119,9 +149,10 @@ struct MapCanvasView: View {
     private var statsCard: some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(selectedCity ?? "全部打卡点")
+                Text(selectedTrip?.routeText ?? selectedCity ?? "全部打卡点")
                     .font(.system(size: WaymarkType.callout, weight: .bold))
-                Text("\(visiblePlaces.count) 个地点 · \(visiblePlaces.reduce(0) { $0 + $1.photos.count }) 张照片")
+                Text(selectedTrip.map { "\($0.dateRangeText) · \($0.placeCount) 个地点 · \($0.photoCount) 张照片" }
+                     ?? "\(visiblePlaces.count) 个地点 · \(visiblePlaces.reduce(0) { $0 + $1.photos.count }) 张照片")
                     .font(.system(size: WaymarkType.footnote))
                     .foregroundStyle(.secondary)
             }
@@ -148,7 +179,9 @@ struct MapCanvasView: View {
     private var hintBar: some View {
         Text(store.places.isEmpty
              ? "按住 ⌥ 点击地图新建打卡点，或点右上角 +"
-             : "⌥ 点击地图可在该位置新建打卡点")
+             : selectedTrip != nil
+               ? "数字是这趟行程的先后顺序，点编号可跳到那一段"
+               : "⌥ 点击地图可在该位置新建打卡点")
             .font(.system(size: WaymarkType.caption))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 10)

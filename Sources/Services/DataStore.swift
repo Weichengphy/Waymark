@@ -20,6 +20,7 @@ final class DataStore {
     /// filling the cache from inside a getter must not register as a change to
     /// observed state mid-update.
     @ObservationIgnored private var coverageCache: [String: CityCoverageSummary] = [:]
+    @ObservationIgnored private var tripsCache: [Trip]?
 
     static var appFolder: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -64,6 +65,7 @@ final class DataStore {
 
     private func save() {
         coverageCache.removeAll()
+        tripsCache = nil
         guard let data = try? encoder.encode(places) else { return }
         try? data.write(to: fileURL, options: .atomic)
     }
@@ -117,6 +119,19 @@ final class DataStore {
 
     var photoCount: Int {
         places.reduce(0) { $0 + $1.photos.count }
+    }
+
+    /// Journeys derived from visit dates. Cached alongside coverage — the
+    /// sidebar asks for this on every view update.
+    var trips: [Trip] {
+        if let tripsCache { return tripsCache }
+        let built = TripBuilder.build(from: places)
+        tripsCache = built
+        return built
+    }
+
+    func trip(id: String) -> Trip? {
+        trips.first { $0.id == id }
     }
 
     func coverageSummary(forCity city: String) -> CityCoverageSummary? {

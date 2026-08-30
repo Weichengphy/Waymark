@@ -22,6 +22,13 @@ struct ContentView: View {
     /// in an indeterminate order, so comparing against the selection would make
     /// the *first* click on a city look like a repeat click.
     @State private var cameraFocusedCity: String?
+    @State private var selectedTripID: String?
+
+    /// Resolved fresh each time: trips are derived from visit dates, so an edit
+    /// can dissolve or reshape the one that was selected.
+    private var selectedTrip: Trip? {
+        selectedTripID.flatMap { store.trip(id: $0) }
+    }
 
     /// Single sheet slot — two `.sheet` modifiers on one view is a coin flip
     /// in SwiftUI as to which one actually presents.
@@ -46,7 +53,10 @@ struct ContentView: View {
                 isShowingAddCity: isShowingAddCity,
                 onCityActivated: activate(city:),
                 onRenameCity: renameCity(_:to:),
-                onDeleteCity: deleteCity(_:)
+                onDeleteCity: deleteCity(_:),
+                selectedTripID: $selectedTripID,
+                onTripActivated: activate(trip:),
+                onSelectAll: selectAll
             )
             .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
         } detail: {
@@ -65,6 +75,17 @@ struct ContentView: View {
                     .frame(minWidth: 420)
                 } else {
                     mapArea
+                }
+
+                if selectedPlaceID == nil, let selectedTrip {
+                    Divider()
+                    TripItineraryView(
+                        trip: selectedTrip,
+                        onFocusStop: focus(stop:),
+                        onSelectPlace: { selectedPlaceID = $0.id },
+                        onClose: { selectedTripID = nil }
+                    )
+                    .transition(.move(edge: .trailing))
                 }
 
                 if let selectedPlaceID {
@@ -89,6 +110,7 @@ struct ContentView: View {
                 }
             }
             .animation(.snappy(duration: 0.2), value: selectedPlaceID)
+            .animation(.snappy(duration: 0.2), value: selectedTripID)
             .toolbar { toolbarContent }
         }
         .navigationTitle(selectedCity ?? "Waymark")
@@ -103,7 +125,14 @@ struct ContentView: View {
             if let newCity, let id = selectedPlaceID, store.place(id: id)?.city != newCity {
                 selectedPlaceID = nil
             }
-            frameCamera(for: newCity)
+            if selectedTripID == nil { frameCamera(for: newCity) }
+        }
+        .onChange(of: selectedTripID) { _, newTripID in
+            guard let newTripID, let trip = store.trip(id: newTripID) else { return }
+            closeGallery()
+            selectedPlaceID = nil
+            selectedCity = nil
+            frameCamera(to: trip)
         }
         .task {
             // Opening shot: the whole map, so the first thing you see is
@@ -135,7 +164,9 @@ struct ContentView: View {
             cameraPosition: $cameraPosition,
             showsCoverageGrid: $showsCoverageGrid,
             mapStyleChoice: $mapStyleChoice,
-            visibleRegion: $visibleRegion
+            visibleRegion: $visibleRegion,
+            selectedTrip: selectedTrip,
+            onFocusStop: focus(stop:)
         )
         .frame(minWidth: 420)
         .overlay {
@@ -213,11 +244,44 @@ struct ContentView: View {
         galleryVisitID = nil
     }
 
+    /// "All check-ins" has to be an explicit action rather than just clearing
+    /// the city: while a journey is selected the city is already nil, so
+    /// assigning nil again would change nothing and leave the trip drawn.
+    private func selectAll() {
+        selectedTripID = nil
+        selectedCity = nil
+        frameCamera(for: nil)
+    }
+
     private func zoomToFitAll() {
+        selectedTripID = nil
         selectedCity = nil
         // Explicit call as well as the `selectedCity` observer, since that
         // observer doesn't fire when the selection was already nil.
         frameCamera(for: nil)
+    }
+
+    /// Selecting a journey takes over the map: it spans cities, so a city
+    /// scope and a trip scope can't both be in effect.
+    private func activate(trip: Trip) {
+        guard selectedTripID != trip.id else {
+            frameCamera(to: trip) // re-click reframes the whole route
+            return
+        }
+        selectedTripID = trip.id
+    }
+
+    /// Zooms to one leg without dropping the journey — the numbered route
+    /// stays drawn so you keep your place in the itinerary.
+    private func focus(stop: TripStop) {
+        guard let region = MKCoordinateRegion.fitting(stop.places) else { return }
+        withAnimation(.easeInOut) { cameraPosition = .region(region) }
+        cameraFocusedCity = nil
+    }
+
+    private func frameCamera(to trip: Trip) {
+        guard let region = MKCoordinateRegion.fitting(trip.places) else { return }
+        setCamera(region, focusedCity: nil)
     }
 
     private func deleteCity(_ city: String) {
@@ -244,6 +308,7 @@ struct ContentView: View {
     /// the camera is already on zooms one step further in, so getting from a
     /// wide view down to street level is just clicking the same row again.
     private func activate(city: String) {
+        selectedTripID = nil
         guard cameraFocusedCity == city else {
             selectedCity = city
             frameCamera(for: city)

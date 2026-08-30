@@ -14,6 +14,9 @@ struct SidebarView: View {
     var onCityActivated: (String) -> Void
     var onRenameCity: (String, String) -> Void
     var onDeleteCity: (String) -> Void
+    @Binding var selectedTripID: String?
+    var onTripActivated: (Trip) -> Void
+    var onSelectAll: () -> Void
 
     @State private var searchText = ""
     @State private var cityPendingDeletion: String?
@@ -28,6 +31,11 @@ struct SidebarView: View {
 
     /// With a search term active, matching places across every city surface
     /// too — on a Mac the sidebar doubles as the "jump to anything" list.
+    private var trips: [Trip] {
+        guard !searchText.isEmpty else { return store.trips }
+        return store.trips.filter { $0.routeText.localizedCaseInsensitiveContains(searchText) }
+    }
+
     private var matchingPlaces: [Place] {
         guard !searchText.isEmpty else { return [] }
         return store.places.filter {
@@ -62,6 +70,24 @@ struct SidebarView: View {
                         Label(kind.sectionTitle, systemImage: kind.symbolName)
                             .font(.system(size: WaymarkType.caption, weight: .semibold))
                     }
+                }
+            }
+
+            if !trips.isEmpty {
+                Section {
+                    ForEach(trips) { trip in
+                        TripRow(trip: trip, isSelected: trip.id == selectedTripID)
+                            .contentShape(Rectangle())
+                            .onTapGesture { onTripActivated(trip) }
+                            .listRowBackground(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(trip.id == selectedTripID ? Color.accentColor.opacity(0.15) : .clear)
+                            )
+                            .help("点击在地图上按顺序画出这趟行程")
+                    }
+                } header: {
+                    Label("旅行踪迹", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                        .font(.system(size: WaymarkType.caption, weight: .semibold))
                 }
             }
 
@@ -164,10 +190,10 @@ struct SidebarView: View {
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
-        .onTapGesture { selectedCity = nil }
+        .onTapGesture(perform: onSelectAll)
         .listRowBackground(
             RoundedRectangle(cornerRadius: 6)
-                .fill(selectedCity == nil ? Color.accentColor.opacity(0.15) : .clear)
+                .fill(selectedCity == nil && selectedTripID == nil ? Color.accentColor.opacity(0.15) : .clear)
         )
     }
 
@@ -223,6 +249,37 @@ private struct CityRow: View {
                     .controlSize(.mini)
 
                 Text("\(aggregate.placeCount) 个地点 · \(aggregate.photoCount) 张照片")
+                    .font(.system(size: WaymarkType.caption))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 3)
+    }
+}
+
+private struct TripRow: View {
+    let trip: Trip
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "figure.walk.motion")
+                .font(.system(size: 12))
+                .foregroundStyle(.white)
+                .frame(width: 26, height: 26)
+                .background(TripPalette.route, in: RoundedRectangle(cornerRadius: 6))
+
+            VStack(alignment: .leading, spacing: 3) {
+                // The route is the identity of a trip, so it is the headline —
+                // a date range alone wouldn't tell you which journey this was.
+                Text(trip.routeText)
+                    .font(.system(size: WaymarkType.body, weight: .semibold))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("\(trip.dateRangeText) · \(trip.dayCount) 天")
+                    .font(.system(size: WaymarkType.caption))
+                    .foregroundStyle(.secondary)
+                Text("\(trip.placeCount) 个打卡点 · \(trip.photoCount) 张照片")
                     .font(.system(size: WaymarkType.caption))
                     .foregroundStyle(.secondary)
             }

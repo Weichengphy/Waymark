@@ -35,6 +35,13 @@ enum CoveragePalette {
     static let unvisitedStroke = Color.white.opacity(0.10)
 }
 
+/// The trip route needs a hue that is neither a place category nor the
+/// coverage amber, so a route drawn across a city with its grid showing stays
+/// unambiguous. Magenta is unused elsewhere and holds up on every map style.
+enum TripPalette {
+    static let route = Color(red: 0.90, green: 0.13, blue: 0.47)
+}
+
 func categoryColor(_ category: PlaceCategory) -> Color {
     switch category {
     case .city: .blue
