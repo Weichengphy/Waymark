@@ -3,7 +3,6 @@ import MapKit
 
 struct MapCanvasView: View {
     @Environment(DataStore.self) private var store
-    @Environment(RouteStore.self) private var routeStore
 
     @Binding var selectedCity: String?
     @Binding var selectedPlaceID: UUID?
@@ -67,25 +66,13 @@ struct MapCanvasView: View {
                 }
 
                 if let selectedTrip {
-                    ForEach(selectedTrip.legs) { leg in
-                        if let route = routeStore.route(for: leg) {
-                            // Solid: this is the ground actually covered.
-                            MapPolyline(coordinates: route.coordinates)
-                                .stroke(
-                                    TripPalette.route.opacity(0.9),
-                                    style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
-                                )
-                        } else {
-                            // Dashed: a straight line stands in, either because
-                            // the route is still loading or because there is no
-                            // ground route (a flight, a crossing).
-                            MapPolyline(coordinates: [leg.from.coordinate, leg.to.coordinate])
-                                .stroke(
-                                    TripPalette.route.opacity(0.75),
-                                    style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [10, 7])
-                                )
-                        }
-                    }
+                    // Dashed, so it reads as "the order I went" rather than a
+                    // road you could drive.
+                    MapPolyline(coordinates: selectedTrip.coordinates)
+                        .stroke(
+                            TripPalette.route.opacity(0.85),
+                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round, dash: [10, 7])
+                        )
                 }
 
                 if showsCityAggregates {
@@ -193,7 +180,7 @@ struct MapCanvasView: View {
         Text(store.places.isEmpty
              ? "按住 ⌥ 点击地图新建打卡点，或点右上角 +"
              : selectedTrip != nil
-               ? "实线为地面路线，虚线为直连；数字是先后顺序，点编号可跳到那一段"
+               ? "数字是这趟行程的先后顺序，点编号可跳到那一段"
                : "⌥ 点击地图可在该位置新建打卡点")
             .font(.system(size: WaymarkType.caption))
             .foregroundStyle(.secondary)

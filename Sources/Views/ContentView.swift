@@ -3,7 +3,6 @@ import MapKit
 
 struct ContentView: View {
     @Environment(DataStore.self) private var store
-    @Environment(RouteStore.self) private var routeStore
 
     @State private var selectedCity: String?
     @State private var selectedPlaceID: UUID?
@@ -139,12 +138,6 @@ struct ContentView: View {
             // Opening shot: the whole map, so the first thing you see is
             // everywhere you have been.
             frameCamera(for: nil)
-        }
-        // Legs resolve one at a time over the network; the map shows straight
-        // dashes until each arrives, then swaps that leg to the real route.
-        .task(id: selectedTripID) {
-            guard let selectedTrip else { return }
-            await routeStore.loadRoutes(for: selectedTrip)
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {

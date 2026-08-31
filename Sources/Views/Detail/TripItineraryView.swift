@@ -4,8 +4,6 @@ import SwiftUI
 /// list, matching the numbers on the map. The map answers "where did I go";
 /// this answers "in what order, for how long, and what did I do there".
 struct TripItineraryView: View {
-    @Environment(RouteStore.self) private var routeStore
-
     let trip: Trip
     var onFocusStop: (TripStop) -> Void
     var onSelectPlace: (Place) -> Void
@@ -19,9 +17,6 @@ struct TripItineraryView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(trip.stops) { stop in
                         stopRow(stop, isLast: stop.id == trip.stops.last?.id)
-                        if let leg = trip.legs.first(where: { $0.from.id == stop.id }) {
-                            legRow(leg)
-                        }
                     }
                 }
                 .padding(14)
@@ -67,34 +62,6 @@ struct TripItineraryView: View {
             Text(label)
                 .font(.system(size: WaymarkType.caption))
                 .foregroundStyle(.secondary)
-        }
-    }
-
-    /// The distance between two stops, which the route lookup returns for
-    /// free — it is the one number that makes an itinerary feel like travel
-    /// rather than a list of place names.
-    @ViewBuilder
-    private func legRow(_ leg: TripLeg) -> some View {
-        HStack(spacing: 10) {
-            Rectangle()
-                .fill(TripPalette.route.opacity(0.35))
-                .frame(width: 2, height: 20)
-                .frame(width: 22)
-
-            if let route = routeStore.route(for: leg) {
-                Label(route.distanceText, systemImage: "arrow.down")
-                    .font(.system(size: WaymarkType.caption))
-                    .foregroundStyle(.secondary)
-            } else if routeStore.isUnavailable(leg) {
-                Label("无地面路线", systemImage: "airplane")
-                    .font(.system(size: WaymarkType.caption))
-                    .foregroundStyle(.secondary)
-            } else {
-                Label("查询路线中…", systemImage: "ellipsis")
-                    .font(.system(size: WaymarkType.caption))
-                    .foregroundStyle(.tertiary)
-            }
-            Spacer()
         }
     }
 

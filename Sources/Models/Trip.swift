@@ -74,22 +74,9 @@ struct Trip: Identifiable, Hashable {
         stops.map(\.coordinate)
     }
 
-    /// Consecutive pairs of stops — one drawn line each, so a leg with a real
-    /// ground route and a leg without can be rendered differently.
-    var legs: [TripLeg] {
-        zip(stops, stops.dropFirst()).map { TripLeg(from: $0, to: $1) }
-    }
-
     var dateRangeText: String {
         let start = WaymarkDateFormat.dayMonthYear.string(from: startDate)
         if Calendar.current.isDate(startDate, inSameDayAs: endDate) { return start }
         return "\(start) – \(WaymarkDateFormat.monthDay.string(from: endDate))"
     }
-}
-
-struct TripLeg: Identifiable, Hashable {
-    let from: TripStop
-    let to: TripStop
-
-    var id: String { "\(from.id)-\(to.id)" }
 }
