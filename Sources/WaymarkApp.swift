@@ -4,12 +4,14 @@ import AppKit
 @main
 struct WaymarkApp: App {
     @State private var store = DataStore()
+    @State private var routeStore = RouteStore()
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(store)
+                .environment(routeStore)
                 .frame(minWidth: 900, minHeight: 560)
         }
         .defaultSize(width: 1280, height: 800)
